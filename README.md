@@ -1,55 +1,255 @@
 # HTTP Server from Scratch
 
-Learning and building an HTTP server in pure python without the use of any frameworks
+Learning and building an HTTP server in pure Python without using any web frameworks.
 
-## Why
+## Why?
 
-I wanted to properly learn and understand what goes on within the system, how sockets are created, bound and how they accept connections. How HTTP gets parsed line by line and how the route table works. This is why I started building an HTTP server from scratch to help me understand the TCP and HTTP internals and fundamentals like How does the OS know which process should receive a packet on port 8080, How does a receiver know where one HTTP header ends and another begins, How does a server know when the full request has arrived, Why does a GET request have no body but a POST does?
+I wanted to properly understand what happens underneath the abstractions provided by frameworks:
+
+* How sockets are created and bound
+* How incoming connections are accepted
+* How HTTP requests are parsed
+* How route tables work
+* How TCP and HTTP communicate with each other
+
+This project was built to answer questions such as:
+
+* How does the OS know which process should receive a packet sent to port `8080`?
+* How does a receiver know where one HTTP header ends and another begins?
+* How does a server know when the full request has arrived?
+* Why do `GET` requests typically have no body while `POST` requests do?
+
+The goal is to learn the fundamentals of networking by implementing them directly.
+
+---
 
 ## Architecture
 
-Your Browser / curl
-      ↓  (HTTP — application layer)
-      ↓  (TCP  — transport layer)
-      ↓  (IP   — network layer)
-      ↓  (Ethernet — link layer)
+```text
+Browser / curl
+      ↓  (HTTP - Application Layer)
+      ↓  (TCP  - Transport Layer)
+      ↓  (IP   - Network Layer)
+      ↓  (Ethernet - Link Layer)
+```
 
-Server Lifecycle:
-	1. Create socket
-		Nothing is bound to any address yet, its just to tell the OS that a socket with specifications like IPv4 and TCP is wanted
-	2. Set socket options
-		Using SO_REUSEADDR to tell the os that I want to reuse same port
-	3. Bind
-		Claiming an address (host, port) tuple, '' or '0.0.0.0' as host to accept connections on all network interfaces. Port 8080 is conventional for dev HTTP servers
-	4. Listen
-		OS starts accepting incoming connections into a queue. The argument is the backlog, how many pending connections to queue before refusing new ones
-	5. Accept loop
-		Program pauses here until client connects. When it does it returns 2 things: new socket for that client, (the original socket keeps listening), and clients (ip, port) address
-        On that new socket we read what client sent and write back, then close it
+### Server Lifecycle
 
+#### 1. Create Socket
+
+A socket object is created and configured for:
+
+* IPv4 (`AF_INET`)
+* TCP (`SOCK_STREAM`)
+
+At this point, nothing is bound to an address. The program is simply requesting a TCP socket from the operating system.
+
+#### 2. Set Socket Options
+
+```python
+SO_REUSEADDR
+```
+
+This allows the server to reuse the same port immediately after restarting instead of waiting for the operating system to release it.
+
+#### 3. Bind
+
+The socket claims an address:
+
+```python
+(host, port)
+```
+
+Using:
+
+```python
+"0.0.0.0"
+```
+
+or
+
+```python
+""
+```
+
+allows the server to accept connections on all network interfaces.
+
+Port `8080` is conventionally used for development HTTP servers.
+
+#### 4. Listen
+
+The operating system begins accepting incoming connection requests and places them into a queue.
+
+```python
+listen(backlog)
+```
+
+The `backlog` determines how many pending connections can wait before new connections are refused.
+
+#### 5. Accept Loop
+
+The server blocks while waiting for incoming connections.
+
+When a client connects:
+
+```python
+client_socket, address = server_socket.accept()
+```
+
+The OS returns:
+
+* A new socket dedicated to that client
+* The client's `(IP, Port)` address
+
+The original socket continues listening for additional connections.
+
+The server then:
+
+1. Reads data from the client socket
+2. Processes the request
+3. Sends a response
+4. Closes the client connection
+
+---
+
+## HTTP Request Structure
+
+A complete HTTP request consists of three parts:
+
+### 1. Request Line
+
+Always the first line:
+
+```text
+METHOD PATH VERSION
+```
+
+Example:
+
+```text
+GET / HTTP/1.1
+```
+
+### 2. Headers
+
+Every line following the request line until a blank line.
+
+Format:
+
+```text
+Key: Value
+```
+
+Example:
+
+```text
+Host: localhost:8080
+User-Agent: curl/8.0
+```
+
+### 3. Body
+
+Everything after the blank line.
+
+* Usually empty for `GET`
+* Commonly present for `POST`, `PUT`, and `PATCH`
+
+---
+
+### Delimiters
+
+Headers and body are separated by:
+
+```text
+\r\n\r\n
+```
+
+Individual header lines are separated by:
+
+```text
+\r\n
+```
+
+Example:
+
+```text
+POST /users HTTP/1.1\r\n
+Host: localhost:8080\r\n
+Content-Length: 5\r\n
+\r\n
+Hello
+```
+
+---
 
 ## Features
 
+### Implemented
 
--TCP socket server, raw request logging, HTTP response
+* TCP socket server
+* Raw HTTP request logging
+* Basic HTTP response generation
+* HTTP request parsing
 
--To be added:
-    HTTP request parsing
-    routing, proper responses
+### Planned
 
-## How to run
+* Request routing
+* Proper HTTP status codes
+* Response helpers
+* Multiple HTTP methods
+* Better error handling
+* Static file serving
+
+---
+
+## How to Run
+
+Start the server:
 
 ```bash
 python server.py
-curl http://localhost:8080
-
 ```
 
-## Project structure
+Send a request:
 
-`server.py` - Contains the server code for the TCP socket server, raw request logging, and HTTP response
+```bash
+curl http://localhost:8080
+```
+
+---
+
+## Project Structure
+
+```text
+.
+├── server.py
+└── http_parser.py
+```
+
+### `server.py`
+
+Contains:
+
+* TCP socket server
+* Connection handling
+* Raw request logging
+* HTTP response generation
+
+### `http_parser.py`
+
+Contains:
+
+* HTTP request parsing logic
+* Request line extraction
+* Header parsing
+* Body extraction
+
+---
 
 ## References
 
-[RFC 7230](https://datatracker.ietf.org/doc/html/rfc7230)
-[RFC 793](https://datatracker.ietf.org/doc/html/rfc793)
+* RFC 7230 — HTTP/1.1 Message Syntax and Routing
+  https://datatracker.ietf.org/doc/html/rfc7230
+
+* RFC 793 — Transmission Control Protocol (TCP)
+  https://datatracker.ietf.org/doc/html/rfc793

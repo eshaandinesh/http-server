@@ -1,4 +1,6 @@
 import socket
+import http_parser
+
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 PORT = 8080
@@ -11,7 +13,8 @@ try:
         conn, addr = server_socket.accept()
         print("Client address is", addr)
         data = conn.recv(1024)
-        print(data)
+        parsed_data = http_parser.parse_request(data)
+        print(parsed_data)
         conn.sendall(b'HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 5\r\n\r\nHello')
         conn.close()
 except KeyboardInterrupt:
